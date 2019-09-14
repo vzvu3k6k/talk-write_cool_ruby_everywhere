@@ -1,2 +1,206 @@
 section
-  h1 Reveal Template
+  h1
+    | いつでもどこでも
+    br
+    | クールなRubyを書く方法
+  .info.center yebis0942 at Osaka RubyKaigi02
+section
+  h2 最近やったこと
+  p Ruby 2.7で導入予定の構文を使ったコードをRuby 2.7未満の環境で動くように変換してみた。
+section
+  h2 今日話すこと
+  ul
+    li なぜそんなことをしたのか
+    li コード変換のしくみ
+      ul
+        li Rubyのコードを解釈する
+        li コードを書き換える
+    li Rubyでsourcemap
+    //- li 使ってみる
+    //- li 実用に向けての課題
+section
+  h2
+    | なぜそんなことを
+    br
+    | したのか
+  ul
+    li Rubyに新機能が入ったらすぐ使いたい
+    li しかし諸事情により旧バージョンのRubyのサポートも続ける必要が…
+    li つらい
+    li
+      | 旧バージョンでも動くように
+      br
+      | コードを変換したらいいのでは💡
+    li JavaScriptの
+      a(href="https://babeljs.io") Babel
+      | みたいなやつがほしい
+section
+  h2 今回対象にした機能
+  p 新機能は3つに分類できる。
+  ol
+    li 言語機能そのものの拡張
+    li クラス、メソッドの追加
+    li 糖衣構文
+      b ←これを扱う
+section
+  h2 言語機能そのものの拡張
+  p
+    ul
+      li
+        code TracePoint
+        ul
+          li メソッドの呼び出しなどをフックする
+      li refinement
+        ul
+          li スコープが制限されたモンキーパッチ
+  p Rubyの処理系そのものに手を入れない限り再現不能、あるいは再現困難なもの
+  aside
+    p （refinementって
+      code TracePoint
+      | で再現できるんだろうか？）
+section
+  h2 クラス、メソッドの追加
+  ul
+    li
+      code Enumerable#tally
+      | とか
+    li モンキーパッチやrefinementで対応できる
+    li
+      | 全部まとまった便利なgemもある→
+      a(href="https://github.com/marcandre/backports") https://github.com/marcandre/backports
+section
+  h2 糖衣構文
+  ul
+    li 今回扱うのはこれ
+      pre
+        code
+          | # numbered parameters
+          | [1, 2, 3].map { |n| n * 2 }
+          | [1, 2, 3].map { _1 * 2 }
+    li
+      code &.
+      | とか
+      code .:
+      | とかパターンマッチとか
+    li
+      | なくても同じことができるけど、
+      br
+      | コードをよりシンプルにしてくれるもの
+section
+  h2 コード変換のしくみ
+  ol
+    li Rubyのコードを解釈する
+      ul
+        li 「n行目のm列でnumbered parameterを使ってる」
+    li 解釈した結果をもとに書き換える 
+      ul
+        li 「n行目のm列のnumbered parameterを通常のブロック引数に書き換える」
+section
+  h2 Rubyのコードを解釈する
+  p いくつかライブラリがある。主要なものは以下（登場順）
+  ul
+    li Ripper: Rubyに同梱
+    li Parser: ふつうのgem
+      ul
+        li RuboCopとかが使ってる。
+        li 出力が明快。
+        li ライブラリが充実していていじりやすい。
+    li
+      code RubyVM::AbstractSyntaxTree
+      | : Rubyに同梱
+section
+  h2
+    code
+      | RubyVM::AST
+    | + Parser
+  ul
+    li 両方のいいとこどりをしようとした
+      ul
+        li
+          code RubyVM::AST
+          | は最新の構文に対応している
+        li Parserにはコードの書き換えのための便利機能がある
+    li うまくいかなかった
+section
+  h2 作戦
+  ol
+    li まず
+      code RubyVM::AST
+      | でパースする
+    li 新しい構文が出てきたらその箇所をダミーのコードで置き換える
+    li Parserで再度パースする
+    li 
+      code RubyVM::AST
+      | で新しい構文の箇所をパースしてParserの出力と同じ形式に変換する
+section
+  h2 敗因
+  ul
+    li 式を内包する可能性がある構文の対応が大変すぎた
+      ul
+        li
+          |コードの位置情報を保っていないと
+          br
+          |次の書き換えフェーズで使えない
+    li Parserが新構文に対応するほうが早かった…
+section
+  h2 というわけでParser
+  pre
+    code
+      | # こんな感じで手軽に使える
+      | require 'parser/ruby27'
+      | pp Parser::Ruby27.parse('[1].map { @1 * 2 }')
+  p Ruby2.7の文法にも部分的に対応している
+  ul
+    li numbered parametersは
+      code @1
+      | 形式になっている
+    li パターンマッチングは
+      a(href="https://github.com/whitequark/parser/pull/574/") #574
+      | で提案中
+section
+  h2 コード書き換えの様子
+  .center
+    a(href="https://github.com/vzvu3k6k/baberu") vzvu3k6k/baberu
+section
+  h2 Rubyでsourcemap
+  ul
+    li 変換前のコードと変換後のコードの位置関係を対応づける
+    li フロントエンドのビルドツール（JSとかCSSとかを出力するあれこれ）では広く使われてる
+    li 例外のバックトレースとかで便利
+      ul
+        li 変換後の行番号が出てもどこがバグってるのかわからない 
+section
+  h2 実装上の微妙な問題
+  p.info デモ: demo/error.{js,rb}
+  ul
+    li JavaScriptは行番号 + 列番号が取れる
+    li Rubyの例外は発生位置の行番号しか取れないっぽい
+    li 列番号が取れない = 複数行の変換元コードを1行にまとめてしまうと、元コードのどの行で例外が発生したのか確定できなくなる。
+section
+  h3 例
+  ul
+    li 元コード
+      ul
+        li
+          pre
+            | a = nil
+            | a[0] # ここでエラー
+    li 変換後コード
+      ul
+        li
+          pre
+            | a = nil; a[0] # ここでエラー
+  p Rubyでminifyとかしないので大丈夫そう
+  p.info 対応づけの処理が楽になるので割と助かった…
+section.center
+  h2 Thanks for listening!
+  img(src="https://secure.gravatar.com/avatar/41d6ba8848793742a99614e07c82fe36?d=mm&s=200")
+  p
+    | RailsとかReactとかの
+    br
+    | アプリを作って暮らしています。
+  ul
+    li
+      a(href="https://github.com/vzvu3k6k") https://github.com/vzvu3k6k
+    li
+      a(href="https://twitter.com/yebis0942") https://twitter.com/yebis0942

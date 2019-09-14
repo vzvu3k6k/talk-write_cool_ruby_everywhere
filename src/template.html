@@ -5,10 +5,25 @@
     <title><%= htmlWebpackPlugin.options.title %></title>
     <style>
       .reveal aside {
-        display: none !important;
+        font-size: smaller;
+        color: #7c959c;
       }
       .reveal h1, .reveal h2, .reveal h3, .reveal h4, .reveal h5, .reveal h6 {
+        font-family: sans-serif !important;
+        text-align: center !important;
         text-transform: none !important;
+      }
+      .reveal h1 {
+        font-size: 2em !important;
+      }
+      .reveal .info {
+        color: #7c959c;
+      }
+      .reveal .slides {
+        text-align: initial !important;
+      }
+      .reveal .slides .center {
+        text-align: center !important;
       }
     </style>
   </head>
