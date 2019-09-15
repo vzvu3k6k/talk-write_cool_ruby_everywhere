@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Reveal Template</title>
+    <style>
+      .reveal aside {
+        font-size: smaller;
+        color: #7c959c;
+      }
+      .reveal h1, .reveal h2, .reveal h3, .reveal h4, .reveal h5, .reveal h6 {
+        font-family: sans-serif !important;
+        text-align: center !important;
+        text-transform: none !important;
+      }
+      .reveal h1 {
+        font-size: 2em !important;
+      }
+      .reveal .info {
+        color: #7c959c;
+      }
+      .reveal .slides {
+        text-align: initial !important;
+      }
+      .reveal .slides .center {
+        text-align: center !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section><h1>いつでもどこでも<br/>クールなRubyを書く方法</h1><div class="info center">yebis0942 at Osaka RubyKaigi02</div></section><section><h2>最近やったこと</h2><p>Ruby 2.7で導入予定の構文を使ったコードをRuby 2.7未満の環境で動くように変換する。</p><ul><li> <a href="https://github.com/vzvu3k6k/baberu">https://github.com/vzvu3k6k/baberu</a></li><li>まだPoC</li><li>旧スタイルのnumbered parametersでなんとなく動く 🐣</li></ul></section><section><h2>今日話すこと</h2><ul><li>なぜそんなことをしたのか</li><li>コード変換のしくみ<ul><li>Rubyのコードを解釈する</li><li>コードを書き換える</li></ul></li><li>Rubyでsourcemap</li><li>使ってみる</li><li>実用に向けての課題</li></ul></section><section><h2>なぜそんなことを<br/>したのか</h2><ul><li>Rubyに新機能が入ったらすぐ使いたい</li><li>しかし諸事情により旧バージョンのRubyのサポートも続ける必要が…</li><li>つらい</li><li>旧バージョンでも動くように<br/>コードを変換したらいいのでは💡</li><li>JavaScriptの<a href="https://babeljs.io">Babel</a>みたいなやつがほしい</li></ul></section><section><h2>今回対象にした機能</h2><p>新機能は3つに分類できる。</p><ol><li>言語機能そのものの拡張</li><li>クラス、メソッドの追加</li><li>糖衣構文<b>←これを扱う</b></li></ol></section><section><h2>言語機能そのものの拡張</h2><p><ul><li><code>TracePoint</code><ul><li>メソッドの呼び出しなどをフックする</li></ul></li><li>refinement<ul><li>スコープが制限されたモンキーパッチ</li></ul></li></ul></p><p>Rubyの処理系そのものに手を入れない限り再現不能、あるいは再現困難なもの</p><aside><p>（refinementって<code>TracePoint</code>で再現できるんだろうか？）</p></aside></section><section><h2>クラス、メソッドの追加</h2><ul><li><code>Enumerable#tally</code>とか</li><li>モンキーパッチやrefinementで対応できる</li><li>全部まとまった便利なgemもある→<a href="https://github.com/marcandre/backports">https://github.com/marcandre/backports</a></li></ul></section><section><h2>糖衣構文</h2><ul><li>今回扱うのはこれ<pre><code># numbered parameters
+[1, 2, 3].map { |n| n * 2 }
+[1, 2, 3].map { _1 * 2 }</code></pre></li><li><code>&.</code>とか<code>.:</code>とかパターンマッチとか</li><li>なくても同じことができるけど、<br/>コードをよりシンプルにしてくれるもの</li></ul></section><section><h2>コード変換のしくみ</h2><ol><li>Rubyのコードを解釈する<ul><li>「n行目のm列でnumbered parameterを使ってる」</li></ul></li><li>解釈した結果をもとに書き換える <ul><li>「n行目のm列のnumbered parameterを通常のブロック引数に書き換える」</li></ul></li></ol></section><section><h2>Rubyのコードを解釈する</h2><p>いくつかライブラリがある。主要なものは以下（登場順）</p><ul><li>Ripper: Rubyに同梱</li><li>Parser: ふつうのgem<ul><li>RuboCopとかが使ってる。</li><li>出力が明快。</li><li>ライブラリが充実していていじりやすい。</li></ul></li><li><code>RubyVM::AbstractSyntaxTree</code>: Rubyに同梱</li></ul></section><section><h2><code>RubyVM::AST</code>+ Parser</h2><ul><li>両方のいいとこどりをしようとした<ul><li><code>RubyVM::AST</code>は最新の構文に対応している</li><li>Parserにはコードの書き換えのための便利機能がある</li></ul></li><li>うまくいかなかった</li></ul></section><section><h2>作戦</h2><ol><li>まず<code>RubyVM::AST</code>でパースする</li><li>新しい構文が出てきたらその箇所をダミーのコードで置き換える</li><li>Parserで再度パースする</li><li> <code>RubyVM::AST</code>で新しい構文の箇所をパースしてParserの出力と同じ形式に変換する</li></ol></section><section><h2>敗因</h2><ul><li>式を内包する可能性がある構文の対応が大変すぎた<ul><li>コードの位置情報を保っていないと<br/>次の書き換えフェーズで使えない</li></ul></li><li>Parserが新構文に対応するほうが早かった…</li></ul></section><section><h2>というわけでParser</h2><pre><code># こんな感じで手軽に使える
+require 'parser/ruby27'
+pp Parser::Ruby27.parse('[1].map { @1 * 2 }')</code></pre><p>Ruby2.7の文法にも部分的に対応している</p><ul><li>numbered parametersは<code>@1</code>形式になっている</li><li>パターンマッチングは<a href="https://github.com/whitequark/parser/pull/574/">#574</a>で提案中</li></ul></section><section><h2>コード書き換えの様子</h2><div class="center"><a href="https://github.com/vzvu3k6k/baberu">vzvu3k6k/baberu</a></div></section><section><h2>Rubyでsourcemap</h2><ul><li>変換前のコードと変換後のコードの位置関係を対応づける</li><li>フロントエンドのビルドツール（JSとかCSSとかを出力するあれこれ）では広く使われてる</li><li>例外のバックトレースとかで便利<ul><li>変換後の行番号が出てもどこがバグってるのかわからない </li></ul></li></ul></section><section><h2>実装上の微妙な問題</h2><p class="info">デモ: demo/error.{js,rb}</p><ul><li>JavaScriptは行番号 + 列番号が取れる</li><li>Rubyの例外は発生位置の行番号しか取れないっぽい</li><li>列番号が取れない = 複数行の変換元コードを1行にまとめてしまうと、元コードのどの行で例外が発生したのか確定できなくなる。</li></ul></section><section><h3>例</h3><ul><li>元コード<ul><li><pre>a = nil
+a[0] # ここでエラー</pre></li></ul></li><li>変換後コード<ul><li><pre>a = nil; a[0] # ここでエラー</pre></li></ul></li></ul><p>Rubyでminifyとかしないので大丈夫そう</p><p class="info">対応づけの処理が楽になるので割と助かった…</p></section><section><h2>デモ</h2><ul><li><code>np.rb</code></li><li><code>run.rb</code></li><li><code>bundle exec ruby -Ilib ,/run.rb</code></li><li><code>np.rb</code> with 例外</li><li><code>bundle exec ruby -Ilib ,/run.rb</code></li></ul></section><section><h2>実装がかなり汚い</h2><ul><li>ノット be cool</li><li>直していきます…</li></ul></section><section><h2>実用上の課題</h2><ul><li>コンパイルしたRubyコードをRubyGems.orgに上げたくない</li><li>インストール時 or 実行時にビルド？<ul><li>npmで滅びた手法だったような</li></ul></li><li>ビルドの過程の妥当性を機械的に検証できるような何か<ul><li>CIの自動リリースに組み込めばなんかいい感じでいけるかもしれない</li></ul></li></ul></section><section class="center"><h2>Thanks for listening!</h2><img src="https://secure.gravatar.com/avatar/41d6ba8848793742a99614e07c82fe36?d=mm&amp;s=200"/><p>RailsとかReactとかの仕事をしています。</p><ul><li><a href="https://github.com/vzvu3k6k">https://github.com/vzvu3k6k</a></li><li><a href="https://twitter.com/yebis0942">https://twitter.com/yebis0942</a></li></ul></section>
+      </div>
+    </div>
+  <script type="text/javascript" src="index_bundle.js"></script></body>
+</html>
