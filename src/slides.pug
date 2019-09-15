@@ -6,7 +6,12 @@ section
   .info.center yebis0942 at Osaka RubyKaigi02
 section
   h2 最近やったこと
-  p Ruby 2.7で導入予定の構文を使ったコードをRuby 2.7未満の環境で動くように変換してみた。
+  p Ruby 2.7で導入予定の構文を使ったコードをRuby 2.7未満の環境で動くように変換する。
+  ul
+    li 
+      a(href="https://github.com/vzvu3k6k/baberu") https://github.com/vzvu3k6k/baberu
+    li まだPoC
+    li 旧スタイルのnumbered parametersでなんとなく動く 🐣
 section
   h2 今日話すこと
   ul
@@ -16,8 +21,8 @@ section
         li Rubyのコードを解釈する
         li コードを書き換える
     li Rubyでsourcemap
-    //- li 使ってみる
-    //- li 実用に向けての課題
+    li 使ってみる
+    li 実用に向けての課題
 section
   h2
     | なぜそんなことを
@@ -192,13 +197,40 @@ section
             | a = nil; a[0] # ここでエラー
   p Rubyでminifyとかしないので大丈夫そう
   p.info 対応づけの処理が楽になるので割と助かった…
+section
+  h2 デモ
+  ul
+    li
+      code np.rb
+    li
+      code run.rb
+    li
+      code bundle exec ruby -Ilib ,/run.rb
+    li
+      code np.rb
+      |  with 例外
+    li
+      code bundle exec ruby -Ilib ,/run.rb
+section
+  h2 実装がかなり汚い
+  ul
+    li ノット be cool
+    li 直していきます…
+section
+  h2 実用上の課題
+  ul
+    li コンパイルしたRubyコードをRubyGems.orgに上げたくない
+    li インストール時 or 実行時にビルド？
+      ul
+        li npmで滅びた手法だったような
+    li ビルドの過程の妥当性を機械的に検証できるような何か
+      ul
+        li CIの自動リリースに組み込めばなんかいい感じでいけるかもしれない
 section.center
   h2 Thanks for listening!
   img(src="https://secure.gravatar.com/avatar/41d6ba8848793742a99614e07c82fe36?d=mm&s=200")
   p
-    | RailsとかReactとかの
-    br
-    | アプリを作って暮らしています。
+    | RailsとかReactとかの仕事をしています。
   ul
     li
       a(href="https://github.com/vzvu3k6k") https://github.com/vzvu3k6k
