@@ -23,7 +23,7 @@ module.exports = {
   },
   plugins: [
     new HtmlWebpackPlugin({
-      title: require('./package.json').title,
+      title: 'いつでもどこでもクールなRubyを書く方法',
       template: 'src/template.html',
       main: {
         "entry": './index.js'
